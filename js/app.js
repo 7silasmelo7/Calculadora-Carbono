@@ -10,11 +10,8 @@ document.addEventListener('DOMContentLoaded', function() {
      * Configura a calculadora ao carregar a página
      */
     
-    // Preenche a datalist com todas as cidades disponíveis
-    CONFIG.populateDatalist();
-    
-    // Configura o preenchimento automático da distância quando as cidades são selecionadas
-    CONFIG.setupDistanceAutofill();
+    // Inicializa o sistema completo (autocomplete + distância automática)
+    CONFIG.initialize();
     
     // Obtém o elemento do formulário da calculadora
     const calculatorForm = document.getElementById('calculator-form');

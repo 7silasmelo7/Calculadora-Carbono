@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calculadora de Emissão de CO₂</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/autocomplete.css">
 </head>
 <body>
     <header class="header">
@@ -16,29 +17,33 @@
         <form id="calculator-form" class="calculator-form">
             <div class="form-group">
                 <label for="origin" class="form-group__label">Origem</label>
-                <input 
-                    type="text" 
-                    id="origin" 
-                    class="form-group__input" 
-                    list="cities-list" 
-                    placeholder="Digite a cidade de origem"
-                    required
-                >
+                <div class="autocomplete-wrapper">
+                    <input 
+                        type="text" 
+                        id="origin" 
+                        class="form-group__input" 
+                        placeholder="Digite para buscar cidade (ex: Recife)"
+                        autocomplete="off"
+                        required
+                    >
+                    <div id="origin-suggestions" class="autocomplete-suggestions"></div>
+                </div>
             </div>
 
             <div class="form-group">
                 <label for="destination" class="form-group__label">Destino</label>
-                <input 
-                    type="text" 
-                    id="destination" 
-                    class="form-group__input" 
-                    list="cities-list" 
-                    placeholder="Digite a cidade de destino"
-                    required
-                >
+                <div class="autocomplete-wrapper">
+                    <input 
+                        type="text" 
+                        id="destination" 
+                        class="form-group__input" 
+                        placeholder="Digite para buscar cidade (ex: Natal)"
+                        autocomplete="off"
+                        required
+                    >
+                    <div id="destination-suggestions" class="autocomplete-suggestions"></div>
+                </div>
             </div>
-
-            <datalist id="cities-list"></datalist>
 
             <div class="form-group">
                 <label for="distance" class="form-group__label">Distância (km)</label>
@@ -49,7 +54,7 @@
                     readonly
                     placeholder="0"
                 >
-                <small class="form-group__helper-text">A distância será preenchida automaticamente</small>
+                <small class="form-group__helper-text">A distância será calculada automaticamente via OpenStreetMap</small>
             </div>
 
             <div class="form-group">
@@ -141,7 +146,9 @@
         <p class="footer__credits">Desenvolvido para a DIO | Projeto GitHub Copilot do Silas Melo</p>
     </footer>
 
-    <script src="js/routes-data.js"></script>
+    <!-- Scripts da Aplicação -->
+    <!-- Sistema simplificado usando APENAS OpenStreetMap (100% gratuito) -->
+    <script src="js/alternative-apis.js"></script>
     <script src="js/config.js"></script>
     <script src="js/calculator.js"></script>
     <script src="js/ui.js"></script>

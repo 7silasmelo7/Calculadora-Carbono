@@ -50,30 +50,146 @@ const CONFIG = {
     },
 
     /**
-     * Preencha a lista de dados com todas as cidades disponíveis
-     * Busca cidades do RoutesDB e cria elementos de opção
+     * Preencha a lista de dados com cidades brasileiras comuns
+     * Agora com autocomplete dinâmico do OpenStreetMap
      */
     populateDatalist: function() {
-        // Obtém o banco de dados de rotas de todas as cidades
-        const cities = RoutesDB.getAllCities();
-        
-        // Obtém o elemento datalist
-        const datalist = document.getElementById('cities-list');
-        
-        // Limpar opções existentes (se houver)
-        datalist.innerHTML = '';
-        
-        // Criar e anexar elementos de opção para cada cidade
-        cities.forEach(city => {
-            const option = document.createElement('option');
-            option.value = city;
-            datalist.appendChild(option);
-        });
+        // Função obsoleta - agora usamos autocomplete dinâmico
+        // Mantida por compatibilidade
+        console.log('📍 Autocomplete dinâmico ativado - buscando cidades do OpenStreetMap');
     },
 
     /**
-     * Configurar cálculo automático de distância quando origem e destino são selecionados
-     * Lida com busca de rota e substituição manual da distância
+     * 🆕 Configura o autocomplete dinâmico para buscar cidades do OpenStreetMap
+     */
+    setupDynamicAutocomplete: function() {
+        const originInput = document.getElementById('origin');
+        const destinationInput = document.getElementById('destination');
+        const originSuggestions = document.getElementById('origin-suggestions');
+        const destinationSuggestions = document.getElementById('destination-suggestions');
+
+        // Variável para controlar o debounce
+        let searchTimeout = null;
+
+        /**
+         * Função para buscar e exibir sugestões
+         */
+        const handleSearch = async (input, suggestionsDiv) => {
+            const query = input.value.trim();
+
+            // Limpa timeout anterior
+            clearTimeout(searchTimeout);
+
+            // Se o campo está vazio, esconde sugestões
+            if (query.length < 2) {
+                suggestionsDiv.classList.remove('show');
+                suggestionsDiv.innerHTML = '';
+                return;
+            }
+
+            // Mostra loading
+            suggestionsDiv.classList.add('show');
+            suggestionsDiv.innerHTML = '<div class="autocomplete-loading">🔍 Buscando cidades...</div>';
+
+            // Aguarda 300ms antes de buscar (debounce)
+            searchTimeout = setTimeout(async () => {
+                try {
+                    // Busca cidades no OpenStreetMap
+                    const cities = await AlternativeAPIs.searchCities(query, 'br', 8);
+
+                    // Se não encontrou resultados
+                    if (cities.length === 0) {
+                        suggestionsDiv.innerHTML = '<div class="autocomplete-no-results">Nenhuma cidade encontrada</div>';
+                        return;
+                    }
+
+                    // Cria HTML das sugestões
+                    const suggestionsHTML = cities.map(city => `
+                        <div class="autocomplete-suggestion" data-name="${city.name}">
+                            <span class="autocomplete-suggestion-name">${city.name}</span>
+                            <span class="autocomplete-suggestion-details">${city.type || 'cidade'}</span>
+                        </div>
+                    `).join('');
+
+                    suggestionsDiv.innerHTML = suggestionsHTML;
+
+                    // Adiciona eventos de clique
+                    const suggestions = suggestionsDiv.querySelectorAll('.autocomplete-suggestion');
+                    suggestions.forEach(suggestion => {
+                        suggestion.addEventListener('click', () => {
+                            input.value = suggestion.dataset.name;
+                            suggestionsDiv.classList.remove('show');
+                            suggestionsDiv.innerHTML = '';
+                            
+                            // Dispara evento de mudança para calcular distância
+                            input.dispatchEvent(new Event('change'));
+                        });
+                    });
+
+                } catch (error) {
+                    console.error('Erro ao buscar cidades:', error);
+                    suggestionsDiv.innerHTML = '<div class="autocomplete-no-results">Erro ao buscar cidades</div>';
+                }
+            }, 300);
+        };
+
+        // Adiciona eventos de input nos campos
+        originInput.addEventListener('input', () => handleSearch(originInput, originSuggestions));
+        destinationInput.addEventListener('input', () => handleSearch(destinationInput, destinationSuggestions));
+
+        // Fecha sugestões ao clicar fora
+        document.addEventListener('click', (e) => {
+            if (!originInput.contains(e.target) && !originSuggestions.contains(e.target)) {
+                originSuggestions.classList.remove('show');
+            }
+            if (!destinationInput.contains(e.target) && !destinationSuggestions.contains(e.target)) {
+                destinationSuggestions.classList.remove('show');
+            }
+        });
+
+        // Navegação com teclado (setas e Enter)
+        [originInput, destinationInput].forEach(input => {
+            const suggestionsDiv = input.id === 'origin' ? originSuggestions : destinationSuggestions;
+            
+            input.addEventListener('keydown', (e) => {
+                const suggestions = suggestionsDiv.querySelectorAll('.autocomplete-suggestion');
+                const active = suggestionsDiv.querySelector('.autocomplete-suggestion.active');
+                
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (!active) {
+                        suggestions[0]?.classList.add('active');
+                    } else {
+                        active.classList.remove('active');
+                        const next = active.nextElementSibling;
+                        if (next) next.classList.add('active');
+                        else suggestions[0]?.classList.add('active');
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (!active) {
+                        suggestions[suggestions.length - 1]?.classList.add('active');
+                    } else {
+                        active.classList.remove('active');
+                        const prev = active.previousElementSibling;
+                        if (prev) prev.classList.add('active');
+                        else suggestions[suggestions.length - 1]?.classList.add('active');
+                    }
+                } else if (e.key === 'Enter' && active) {
+                    e.preventDefault();
+                    active.click();
+                } else if (e.key === 'Escape') {
+                    suggestionsDiv.classList.remove('show');
+                }
+            });
+        });
+
+        console.log('✅ Autocomplete dinâmico configurado!');
+    },
+
+    /**
+     * Configurar cálculo automático de distância usando APENAS OpenStreetMap
+     * Sistema simplificado - 100% gratuito e sem configuração necessária
      */
     setupDistanceAutofill: function() {
         // Obtém elementos do formulário
@@ -84,37 +200,58 @@ const CONFIG = {
         const helperText = document.querySelector('.form-group__helper-text');
         
         /**
-         * Tenta encontrar e preencher a distância entre as cidades selecionadas
+         * Calcula a distância usando OpenStreetMap
+         * Sistema simplificado e direto
          */
-        const tryFindDistance = () => {
-            // Get trimmed values from inputs
+        const tryFindDistance = async () => {
+            // Obtém valores dos inputs
             const origin = originInput.value.trim();
             const destination = destinationInput.value.trim();
             
             // Só procura se ambos os campos estiverem preenchidos
             if (origin && destination) {
-                // Tenta encontrar a distância da rota
-                const distance = RoutesDB.findDistance(origin, destination);
+                // Mostra mensagem de carregamento
+                if (helperText) {
+                    helperText.textContent = '🔍 Calculando distância via OpenStreetMap...';
+                    helperText.style.color = '#3b82f6';
+                }
                 
-                if (distance !== null) {
-                    // Rota encontrada - preencha a distância
-                    distanceInput.value = distance;
-                    distanceInput.readOnly = true;
+                // Desabilita o campo de distância enquanto calcula
+                distanceInput.disabled = true;
+                
+                try {
+                    // Verifica se a API está disponível
+                    if (typeof AlternativeAPIs === 'undefined') {
+                        throw new Error('API do OpenStreetMap não carregada');
+                    }
                     
-                    // Mostra a mensagem de sucesso
+                    // Calcula a distância usando OpenStreetMap
+                    const result = await AlternativeAPIs.calculateDistanceWithOSM(origin, destination);
+                    
+                    // Preenche a distância calculada
+                    distanceInput.value = result.distanceKm;
+                    distanceInput.readOnly = true;
+                    distanceInput.disabled = false;
+                    
+                    // Mostra mensagem de sucesso
                     if (helperText) {
-                        helperText.textContent = `✓ Distância encontrada: ${distance} km`;
+                        helperText.textContent = `✅ Distância: ${result.distanceKm} km (via OpenStreetMap)`;
                         helperText.style.color = '#10b981';
                     }
-                } else {
-                    // Rota não encontrada
+                    
+                    console.log('🗺️ Distância calculada:', result);
+                    
+                } catch (error) {
+                    // Erro ao calcular
+                    console.error('Erro ao calcular distância:', error);
+                    
                     distanceInput.value = '';
                     distanceInput.readOnly = false;
+                    distanceInput.disabled = false;
                     
-                    // Sugere entrada manual
                     if (helperText) {
-                        helperText.textContent = 'Rota não encontrada. Por favor, insira a distância manualmente.';
-                        helperText.style.color = '#f59e0b';
+                        helperText.textContent = '⚠️ Não foi possível calcular. Use o formato "Cidade, Estado" ou insira manualmente.';
+                        helperText.style.color = '#ef4444';
                     }
                 }
             }
@@ -140,5 +277,21 @@ const CONFIG = {
                 tryFindDistance();
             }
         });
+    },
+
+    /**
+     * Inicialização geral do aplicativo
+     */
+    initialize: function() {
+        console.log('🚀 Inicializando Calculadora de Carbono...');
+        
+        // Configurar autocomplete dinâmico do OpenStreetMap
+        this.setupDynamicAutocomplete();
+        
+        // Configurar cálculo automático de distâncias
+        this.setupDistanceAutofill();
+        
+        console.log('✅ Calculadora de Carbono inicializada!');
+        console.log('ℹ️ Usando apenas OpenStreetMap para distâncias e cidades');
     }
 };
